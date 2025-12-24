@@ -45,6 +45,104 @@ claude-code ask "Add a cutoff frequency parameter to the plugin"
 cmake --build build && echo -ne '\x90\x3C\x64' | SimpleSynthHost
 ```
 
+## Note: Relearning C++ After 30 Years
+
+If you're coming back to C++ after a long break, this is a great project to work with Claude Code. Here's what you should know:
+
+### What's Changed Since the 90s
+
+**Modern C++ Features You'll See:**
+- **Smart pointers** (`std::unique_ptr`, `std::shared_ptr`) - Memory management is automatic now, no more manual `delete`
+- **Auto type deduction** (`auto keyword`) - Compiler figures out types
+- **Range-based for loops** - `for (auto& item : container)` instead of iterators
+- **Lambda functions** - Inline anonymous functions with `[captures](args) { code }`
+- **RAII** - Resource Acquisition Is Initialization (memory/file cleanup is automatic)
+- **Constexpr** - Compile-time computation
+- **Move semantics** - Efficient resource transfer instead of copying
+
+### How to Ask Claude for Help
+
+**Be specific about what you need explained:**
+
+```
+"I see this code uses std::unique_ptr - I remember pointers from
+the 90s but don't understand unique_ptr. Can you explain how it
+prevents memory leaks?"
+```
+
+```
+"This code has 'auto' everywhere. How do I know what type a variable is?
+Do I need to add type declarations?"
+```
+
+```
+"Can you show me the modern C++ way to do this instead of the old pattern?
+I'm used to manual memory management."
+```
+
+**Claude will help with:**
+- Explaining modern C++ syntax you haven't seen before
+- Suggesting idiomatic (modern) approaches instead of old patterns
+- Pointing out memory safety improvements
+- Walking through code and breaking down unfamiliar constructs
+
+### JUCE Framework Notes
+
+JUCE is a mature C++ framework that uses:
+- Lots of inheritance (OOP style)
+- Custom memory management with `OwnedArray`, `ScopedPointer`
+- Heavy use of virtual functions
+- Windows API integration (for this project)
+
+Don't worry if it seems complex at first - Claude can explain any JUCE concept.
+
+### Recommended Approach
+
+1. **Focus on the plugin logic first** - Start with `PluginProcessor.cpp`, which is the audio generation code
+2. **Don't worry about framework details** - Just ask "What does this JUCE method do?"
+3. **Build often** - Test after each small change to catch errors early
+4. **Ask Claude about patterns** - "How would I modernize this to use smart pointers?"
+5. **Use debug output** - Don't rely on a debugger at first, just print values to stderr
+
+### C++ Gotchas to Watch For
+
+- **References vs pointers** - `&` creates a reference (like a safer pointer)
+- **const correctness** - Methods marked `const` promise not to change state
+- **Headers and implementations** - `.h` files declare, `.cpp` files define (same as before)
+- **Namespaces** - `std::` prefix means it's from the standard library
+- **Templates** - Generic code that works with any type (see `AudioBuffer<float>`)
+
+### Quick Reference
+
+| Modern C++ | Old C++ | Use Case |
+|-----------|---------|----------|
+| `auto x = value;` | `Type x = value;` | Let compiler deduce type |
+| `std::unique_ptr<T>` | `T* = new T;` | Single ownership, auto delete |
+| `for (auto x : array)` | `for (int i = 0; i < n; ++i)` | Iterate through containers |
+| `[x](){ code }` | Function pointers | Inline callbacks |
+| `std::vector<T>` | `T array[SIZE]` or new array | Dynamic arrays |
+
+### When in Doubt
+
+Ask Claude directly:
+```
+"I don't recognize this syntax: [&](float x) { ... }
+What is this doing? Is it a C++ thing or JUCE thing?"
+```
+
+Claude will explain and can rewrite code in a simpler style if needed.
+
+### Projects Like This Are Ideal for Relearning
+
+SimpleSynth is great because:
+- It's real code (not a tutorial)
+- It has both simple (parameter handling) and complex (audio DSP) parts
+- You get immediate feedback (audio output!)
+- JUCE documentation is excellent
+- The codebase is small enough to understand completely
+
+Don't hesitate to ask Claude to explain anything. Relearning a language after 30 years is common, and modern C++ is genuinely different enough to warrant explanation.
+
 ## Architecture
 
 ### SimpleSynth Plugin (`SimpleSynth/src/`)
