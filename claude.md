@@ -246,6 +246,323 @@ to explain as you go. For each code change:
 
 This turns coding into a learning experience, not just changing code.
 
+## C++ Specific Best Practices
+
+When relearning C++ after 30 years, there are **critical** best practices that have emerged. Claude should actively teach and enforce these. This isn't optional - these are what separates modern C++ from the 1990s version you learned.
+
+### 1. Memory Management: RAII & Smart Pointers
+
+**THE RULE:** Never use `new` and `delete` manually.
+
+**Old Way (1990s) - AVOID:**
+```cpp
+AudioPluginInstance* plugin = new AudioPluginInstance();
+// ... use plugin ...
+delete plugin;  // Easy to forget! Leak if exception happens!
+```
+
+**Modern Way - USE:**
+```cpp
+auto plugin = std::make_unique<AudioPluginInstance>();
+// Automatically deleted when scope ends
+// Safe even if exception happens
+```
+
+**Claude should:**
+- Flag any use of `new`/`delete` and explain the alternative
+- Explain `unique_ptr` vs `shared_ptr` (unique = one owner, shared = multiple)
+- Show that cleanup is automatic and exception-safe
+- Emphasize: **You should almost never see `delete` in modern C++**
+
+**In SimpleSynth:**
+Already correct - we use `std::unique_ptr<AudioPluginInstance> plugin`
+
+### 2. Const Correctness
+
+**THE RULE:** Mark methods `const` if they don't modify state. Mark parameters `const` if they shouldn't be modified.
+
+**Why it matters:**
+- Compiler prevents accidental modifications
+- Documents intent (reader knows method is safe)
+- Enables optimizations
+- Catches bugs at compile time
+
+**Example - Good:**
+```cpp
+float getValue() const  // Can't modify state
+{
+    return currentValue;  // Safe to call anytime
+}
+
+void process(const AudioBuffer<float>& buffer)  // Can't modify buffer
+{
+    // Compile error if you try: buffer.setSample(...)
+}
+```
+
+**Example - Bad:**
+```cpp
+float getValue()  // Reader doesn't know if it's safe
+{
+    currentValue = 0;  // Silently modifies state!
+}
+
+void process(AudioBuffer<float>& buffer)  // Could modify unexpectedly
+{
+    buffer.setSample(0, 0, 0.0f);  // Did caller expect this?
+}
+```
+
+**Claude should:**
+- Ask "Does this method modify state?" and add `const` if not
+- Explain why we mark parameters `const`
+- Show compiler errors that `const` prevents
+- Point out when `const` is missing and why it matters
+
+### 3. Use Auto for Type Deduction
+
+**THE RULE:** Use `auto` when the type is obvious from context.
+
+**Modern:**
+```cpp
+auto plugin = std::make_unique<AudioPluginInstance>();  // Obvious
+auto& buffer = audioData;  // Clear from assignment
+for (auto& sample : outputBuffer) { }  // Range loop
+```
+
+**Avoid:**
+```cpp
+AudioPluginInstance* plugin = new AudioPluginInstance();  // Verbose, old style
+std::unique_ptr<AudioPluginInstance> plugin = std::make_unique<...>();  // Redundant type
+```
+
+**Claude should:**
+- Simplify verbose type declarations to `auto`
+- Explain what the type actually is when helpful
+- Note: `auto` still has strong type checking - not like dynamic languages
+
+### 4. Move Semantics & Rvalue References
+
+**THE RULE:** Let the compiler move large objects efficiently instead of copying.
+
+**The concept:** If an object is being destroyed anyway (temporary/rvalue), steal its resources instead of copying.
+
+**Modern Example:**
+```cpp
+std::vector<float> data = generateAudioData();  // No copy! Move happens
+// generateAudioData() creates a temporary that's moved into data
+```
+
+**Why it matters:**
+- No expensive copying of large buffers
+- Automatic (compiler does it for you)
+- Exception safe
+- Much faster
+
+**Claude should:**
+- Explain move semantics when assigning temporaries
+- Show that `std::unique_ptr` can be moved but not copied
+- Note: You almost never write move constructors yourself in modern C++
+
+### 5. Exception Safety
+
+**THE RULE:** Code should be exception-safe - if something fails, state is consistent.
+
+**RAII guarantees this:**
+```cpp
+{
+    auto plugin = std::make_unique<AudioPluginInstance>();
+    plugin->initialize();  // Throws exception
+    // Even if initialize() throws, plugin is destroyed safely
+    // No resource leak
+}
+```
+
+**Without RAII (unsafe):**
+```cpp
+{
+    AudioPluginInstance* plugin = new AudioPluginInstance();
+    plugin->initialize();  // Throws exception
+    // delete never called! Memory leak!
+    delete plugin;  // Never reached
+}
+```
+
+**Claude should:**
+- Point out exception-unsafe patterns and explain why
+- Show how RAII (smart pointers, JUCE classes) handles exceptions
+- Note: SimpleSynth uses JUCE's exception-safe classes
+
+### 6. Avoid Raw Pointers
+
+**THE RULE:** Raw pointers (`Type* ptr`) are for non-owning references only.
+
+**Good uses:**
+```cpp
+void processData(float* data, int size)  // Just using the data
+{
+    for (int i = 0; i < size; ++i) {
+        data[i] *= 0.5f;  // Non-owning pointer - we didn't allocate it
+    }
+}
+```
+
+**Bad uses (AVOID):**
+```cpp
+float* data = new float[1000];  // Raw pointer for ownership - BAD!
+// Should use: auto data = std::make_unique<float[]>(1000);
+```
+
+**Claude should:**
+- Flag raw pointers used for ownership
+- Suggest `unique_ptr` or `shared_ptr` instead
+- Explain that raw pointers in function parameters are OK (non-owning)
+
+### 7. Prefer Standard Library & JUCE Classes
+
+**THE RULE:** Use proven classes instead of reinventing.
+
+**Good:**
+```cpp
+std::vector<float> samples;  // Dynamic array with bounds checking
+std::map<std::string, float> parameters;  // Key-value storage
+juce::AudioBuffer<float> audio;  // JUCE's audio-optimized buffer
+```
+
+**Bad:**
+```cpp
+float samples[MAX_SIZE];  // Fixed size, no bounds checking
+struct {  // Manual key-value storage
+    std::string key;
+    float value;
+} parameters[100];
+```
+
+**Claude should:**
+- Suggest appropriate standard library classes
+- Show JUCE equivalents for audio-specific needs
+- Explain why proven classes are safer (bounds checking, exception safety)
+
+### 8. Type Safety
+
+**THE RULE:** Let the type system catch mistakes at compile time.
+
+**Example - Strong types:**
+```cpp
+// Bad - frequency as float, ambiguous units
+void setFrequency(float freq);
+setFrequency(440);      // Hz or kHz? Unclear
+setFrequency(0.01);     // Is this 10kHz or 10Hz?
+
+// Better - enum for clarity
+enum FrequencyUnit { Hz, kHz };
+void setFrequency(float freq, FrequencyUnit unit);
+setFrequency(440, Hz);  // Clear intent
+```
+
+**Example - Type checking:**
+```cpp
+float amplitude = 1.0f;
+int count = amplitude;  // Compiler warning - unsafe conversion
+
+// Better
+int count = static_cast<int>(amplitude);  // Explicit about the conversion
+```
+
+**Claude should:**
+- Suggest type-safe alternatives to ambiguous parameters
+- Explain implicit conversions and when to use `static_cast`
+- Show how enums prevent mistakes better than magic numbers
+
+### 9. Modern Loop Syntax
+
+**THE RULE:** Use range-based for loops instead of index loops.
+
+**Modern:**
+```cpp
+for (auto& sample : outputBuffer) {
+    sample *= gain;
+}
+
+for (const auto& parameter : parameters) {
+    // Can't modify parameter (const)
+}
+```
+
+**Old (avoid unless needed):**
+```cpp
+for (int i = 0; i < outputBuffer.size(); ++i) {
+    outputBuffer[i] *= gain;  // Error-prone indexing
+}
+```
+
+**Claude should:**
+- Convert index loops to range-based for loops
+- Use `const auto&` when not modifying
+- Note: More readable and harder to get off-by-one errors
+
+### 10. Containers Over C Arrays
+
+**THE RULE:** Never use C-style arrays (`float[]`). Use `std::vector` or `std::array`.
+
+**Good:**
+```cpp
+std::vector<float> buffer(size);  // Dynamic size, managed
+std::array<float, 4> stereoChannels;  // Fixed size, known at compile time
+```
+
+**Bad:**
+```cpp
+float* buffer = new float[size];  // Raw ownership, manual cleanup
+float buffer[MAX_SIZE];  // Fixed at compile time, unsafe
+```
+
+**Claude should:**
+- Flag raw arrays and suggest `std::vector` or `std::array`
+- Explain trade-offs: vector (dynamic), array (fixed, stack), deque (front/back insertion)
+- Show that containers have bounds checking in debug mode
+
+### When Claude Reviews Code
+
+Claude should actively check for:
+
+✅ **Good:**
+- [ ] Uses `std::unique_ptr` or `std::shared_ptr` for ownership
+- [ ] Methods marked `const` when appropriate
+- [ ] Uses `auto` for obvious types
+- [ ] Range-based for loops
+- [ ] Exception-safe RAII patterns
+- [ ] Standard library classes
+- [ ] Type-safe code
+
+❌ **Flag and explain:**
+- [ ] Any use of `new`/`delete`
+- [ ] Missing `const` on methods that don't modify state
+- [ ] Raw pointers used for ownership
+- [ ] C-style arrays instead of `std::vector`
+- [ ] Index-based loops that could be range-based
+- [ ] Implicit type conversions
+- [ ] Manual memory management
+
+### Quick Reference: C++ 11/17/20 Features
+
+| Old C++ | Modern C++ | Benefit |
+|---------|-----------|---------|
+| `new Type()` / `delete ptr` | `std::make_unique<Type>()` | Automatic cleanup, safe |
+| Raw pointers `Type*` | `std::unique_ptr<Type>` | Prevents leaks |
+| `for (int i=0; i<n; ++i)` | `for (auto& x : container)` | Cleaner, safer |
+| Type declaration everywhere | `auto x = value;` | Less verbose |
+| `void func() { ... }` | `void func() const { ... }` | Intent clear |
+| `const Type* ptr` | `const auto* ptr` | With auto deduction |
+| C arrays `Type[SIZE]` | `std::array<Type, SIZE>` | Bounds checking |
+| Manual loops | `std::for_each(...)` | Functional style |
+| Callbacks | Lambda `[x](){ ... }` | Inline functions |
+| Copy constructor | Move constructor `&&` | Efficient transfers |
+
+---
+
+**Remember:** These aren't suggestions - they're the foundation of safe, modern C++. Claude should emphasize them every time.
+
 ## Design Patterns: Learning as You Code
 
 As we develop SimpleSynth, Claude should teach you appropriate **design patterns** - reusable solutions to common programming problems. This is especially important when relearning C++ after 30 years, as modern patterns are quite different.
