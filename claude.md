@@ -143,6 +143,109 @@ SimpleSynth is great because:
 
 Don't hesitate to ask Claude to explain anything. Relearning a language after 30 years is common, and modern C++ is genuinely different enough to warrant explanation.
 
+### Claude Should Point Things Out As You Go
+
+When working together with Claude Code, you should **explicitly tell Claude to educate you as you work**. Here's how:
+
+**At the start of a session:**
+```
+"I'm relearning C++ after 30 years. As we work, please:
+- Point out modern C++ features I might not recognize
+- Explain what code is doing, especially framework stuff
+- Suggest if there's a more idiomatic (modern) way
+- Warn me about potential bugs or gotchas
+- Explain why a certain approach is better
+Don't assume I know what everything means."
+```
+
+**Claude should proactively:**
+
+1. **Explain unfamiliar syntax**
+   ```
+   "This uses a lambda function - that's [captures](args) { code }
+   The [&] means 'capture all variables by reference'"
+   ```
+
+2. **Point out modern patterns**
+   ```
+   "This uses std::unique_ptr for automatic memory cleanup.
+   In the 90s you'd use new/delete manually and risk leaks.
+   unique_ptr prevents that automatically."
+   ```
+
+3. **Walk through framework concepts**
+   ```
+   "JUCE's AudioProcessor is the base class. The processBlock()
+   method is called repeatedly with audio data. We override it
+   to generate sound."
+   ```
+
+4. **Warn about gotchas**
+   ```
+   "Watch out: This method is marked const, so it can't modify
+   member variables. If you try to change a parameter value here,
+   it won't compile."
+   ```
+
+5. **Suggest alternatives**
+   ```
+   "You could also write this as a range-based for loop:
+   for (auto& channel : buffer) { ... }
+   It's more readable than traditional indexing."
+   ```
+
+6. **Explain compiler errors**
+   ```
+   "This error means the compiler can't figure out which version
+   of the function you meant. That's because we have multiple
+   functions with the same name (overloading)."
+   ```
+
+**Example: Good Claude Explanation**
+
+When you ask to add a parameter, Claude should:
+1. Explain what it's doing
+2. Point out any modern C++ features
+3. Walk through the JUCE framework parts
+4. Explain the flow (parameter → GUI → audio processing)
+5. Test the change
+
+**Bad:** Just show code without context
+**Good:**
+```
+I'm adding a 'Gain' parameter. Here's how it works:
+
+1. **Enum** - This defines parameter IDs (0, 1, 2...)
+   Modern C++ note: We could use std::string_view instead
+   of comparing string names, but JUCE uses the string approach.
+
+2. **getParameterName()** - JUCE calls this to display
+   parameter names. It's marked const because we're not
+   changing any state.
+
+3. **processBlock()** - This is called repeatedly with audio data.
+   We read the gain parameter and apply it to each sample.
+   Note: getParameter() returns 0.0-1.0, so we multiply by 2.0
+   to get a range of 0.0-2.0x gain.
+
+4. **The math** - sample *= gain * 2.0 makes the audio louder.
+   If gain goes above 1.0, watch for clipping (distortion).
+```
+
+**Tell Claude explicitly what you want:**
+
+```
+"I'm going to ask you to implement features, but I want you
+to explain as you go. For each code change:
+- Show the code
+- Explain what it does in simple terms
+- Point out C++ features I might not recognize
+- Explain JUCE concepts
+- Warn about potential issues"
+```
+
+This turns coding into a learning experience, not just changing code.
+
 ## Architecture
 
 ### SimpleSynth Plugin (`SimpleSynth/src/`)
