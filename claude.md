@@ -246,6 +246,151 @@ to explain as you go. For each code change:
 
 This turns coding into a learning experience, not just changing code.
 
+## Design Patterns: Learning as You Code
+
+As we develop SimpleSynth, Claude should teach you appropriate **design patterns** - reusable solutions to common programming problems. This is especially important when relearning C++ after 30 years, as modern patterns are quite different.
+
+### What Patterns We'll See
+
+**Structural Patterns** (How objects are organized):
+- **RAII** (Resource Acquisition Is Initialization) - Resources cleaned up automatically
+- **Dependency Injection** - Pass dependencies to constructors instead of hardcoding them
+- **Observer** - JUCE uses this heavily (objects notify listeners of changes)
+
+**Behavioral Patterns** (How objects interact):
+- **State Machine** - For things like ADSR envelopes (Attack → Decay → Sustain → Release)
+- **Factory** - Creating objects of different types (e.g., different waveform generators)
+- **Strategy** - Swapping algorithms at runtime (e.g., different oscillator types)
+
+**Concurrency Patterns** (For real-time audio):
+- **Lock-free queues** - MIDI messages without mutex locks
+- **Double buffering** - For safe parameter changes without glitches
+
+### How Claude Should Teach Patterns
+
+When you're writing code, Claude should:
+
+1. **Identify the pattern being used**
+   ```
+   "This code is implementing the Observer pattern - when a parameter
+   changes, JUCE notifies the UI and the processor separately."
+   ```
+
+2. **Explain why it's better than alternatives**
+   ```
+   "We're using RAII (std::unique_ptr) instead of manual delete.
+   The old way (C++98) would look like:
+   ```cpp
+   AudioPluginInstance* plugin = new AudioPluginInstance();
+   // ... later, you might forget to delete ...
+   delete plugin;  // Easy to forget!
+   ```
+
+   Modern way:
+   ```cpp
+   auto plugin = std::make_unique<AudioPluginInstance>();
+   // Automatically deleted when scope ends - can't forget!
+   ```
+   "
+
+3. **Show how it applies to SimpleSynth**
+   ```
+   "The State Machine pattern would be perfect for ADSR envelopes.
+   Each phase (Attack, Decay, Sustain, Release) is a state:
+   - Attack: increase amplitude over time
+   - Decay: decrease to sustain level
+   - Sustain: hold at sustain level
+   - Release: fade to zero when note ends
+   ```
+
+4. **Suggest when to apply it**
+   ```
+   "If we add polyphony, we should use a Factory pattern to create
+   Voice objects. Instead of hardcoding voice creation, we'd pass
+   a VoiceFactory. This makes it easy to change how voices work."
+   ```
+
+### Patterns We'll Likely Implement
+
+**Soon:**
+- RAII with unique_ptr ✓ (already using)
+- Observer pattern (JUCE parameters) ✓ (already in framework)
+- Resource management (file I/O, memory) ✓
+
+**Medium term:**
+- State Machine (ADSR envelope)
+- Factory pattern (voice allocation in polyphony)
+- Strategy pattern (waveform selection)
+
+**Advanced:**
+- Lock-free queues (MIDI input)
+- Double buffering (parameter smoothing)
+
+### How to Ask Claude About Patterns
+
+```
+"I want to add an ADSR envelope. What pattern should I use?"
+```
+
+Claude should respond with:
+1. Name the pattern (State Machine)
+2. Why it fits (Four distinct phases)
+3. How to implement (Simple state variable + time counter)
+4. Show the code structure
+5. Explain trade-offs vs simpler approaches
+
+### Bad vs Good Pattern Explanations
+
+**Bad:**
+```cpp
+// Add ADSR
+float adsr = 0.0f;  // Just have Claude implement it
+```
+
+**Good:**
+```
+"You'll use a State Machine pattern for ADSR:
+
+enum ADSRState { Attack, Decay, Sustain, Release };
+
+This tracks which phase the note is in. As time passes,
+we transition between states. For example:
+
+- In Attack phase: envelope_value increases from 0 to 1
+- In Decay phase: envelope_value decreases from 1 to sustain_level
+- In Sustain phase: envelope_value stays constant
+- In Release phase: envelope_value decreases from current to 0
+
+This is better than having a single 'envelope_time' because:
+1. Each phase has different rates
+2. Sustain doesn't progress over time (always the same)
+3. Release happens only after note-off
+4. Clear intent: the state variable documents what's happening
+
+Here's the implementation..."
+```
+
+### Patterns vs Over-Engineering
+
+**Important:** Don't over-engineer. Use patterns when they solve real problems:
+
+✓ **USE pattern:** Adding polyphony needs voice allocation → Factory
+✓ **USE pattern:** ADSR needs phases with different behavior → State Machine
+✗ **SKIP pattern:** Simple parameter setter doesn't need Factory
+✗ **SKIP pattern:** Three waveforms don't need Strategy yet
+
+Claude should help you recognize when a pattern is worth using and when simpler code is better.
+
+### Learning Through Implementation
+
+The best way to learn patterns is to implement them:
+
+1. **See the problem** - "How do I manage multiple voices?"
+2. **Learn the pattern** - "Factory pattern creates objects"
+3. **Implement it** - Write the code with Claude's guidance
+4. **Refactor later** - If the pattern doesn't fit, change it
+5. **Remember it** - For the next project
+
 ## Architecture
 
 ### SimpleSynth Plugin (`SimpleSynth/src/`)
